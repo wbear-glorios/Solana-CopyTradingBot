@@ -1,0 +1,37 @@
+# RPC Configuration
+# Replace with your preferred RPC endpoint
+# For public endpoints (no API key required):
+RPC_URL=https://api.mainnet-beta.solana.com
+
+# For private RPC endpoints (requires API key):
+# RPC_URL=https://your-rpc-endpoint.com
+# RPC_API_KEY=your-api-key-here
+
+# Alternative public RPC endpoints:
+# RPC_URL=https://solana-api.projectserum.com
+# RPC_URL=https://rpc.ankr.com/solana
+
+# Other configuration
+# Slippage settings (in basis points: 100 = 1%, 500 = 5%, 1000 = 10%)
+# For PumpSwap, consider higher slippage due to volatility
+BUY_SLIPPAGE_BPS_PERCENTAGE=1000
+SELL_SLIPPAGE_BPS_PERCENTAGE=100
+BUY_PRIORITIZATION_FEE_LAMPORTS=2000
+SELL_PRIORITIZATION_FEE_LAMPORTS=20000
+SELL_ALL_PRIORITIZATION_FEE_LAMPORTS=20000
+
+# Private RPC endpoints (if you have them)
+ZEROSLOT_RPC_URL=https://your-0slot-rpc-endpoint
+NOZOMI_URL=https://your-nozomi-rpc-endpoint
+NOZOMI_UUID=your-nozomi-uuid
+NOZOMI_TIP_ACCOUNT=your-nozomi-tip-account
+NOZOMI_TIP_LAMPORTS=1000
+
+# Tip accounts
+SLOT_TIP_ACCOUNT=your-slot-tip-account
+SLOT_TIP_LAMPORTS=1000
+JITO_TIP_LAMPORTS=1000
+
+# Feature flags
+ENABLE_SWAP_TIP=true
+DIRECT_ADDED_PUMPSWAP=false 
