@@ -725,13 +725,51 @@ class TransactionMonitor extends EventEmitter {
     try {
       // Calculate dynamic buy amount based on percentage of target wallet's SOL change
       const dynamicBuyAmount = calculateDynamicBuyAmount(solChanges, BUY_AMOUNT_PERCENTAGE);
-      const finalBuyAmount = dynamicBuyAmount !== null ? dynamicBuyAmount : buyAmount;
+      let finalBuyAmount = dynamicBuyAmount !== null ? dynamicBuyAmount : buyAmount;
+
+      // LIQUIDITY AWARENESS: Analyze pool depth and adjust position size
+      if (context) {
+        const liquidityAnalysis = analyzeLiquidity(context, pool_status, null);
+        logLiquidityAnalysis(liquidityAnalysis, tokenMint);
+        
+        // Check if pool has sufficient liquidity
+        if (!liquidityAnalysis.isSafe) {
+          console.log(chalk.yellow(`[${utcNow()}] ⚠️ BUY WARNING: Pool liquidity (${liquidityAnalysis.solLiquidity.toFixed(4)} SOL) below safe threshold`));
+          
+          // If liquidity is very low, skip the buy
+          if (liquidityAnalysis.solLiquidity < 5.0) {
+            console.log(chalk.red(`[${utcNow()}] ❌ BUY SKIPPED: Pool too shallow (${liquidityAnalysis.solLiquidity.toFixed(4)} SOL)`));
+            return { success: false, reason: 'pool_too_shallow', analysis: liquidityAnalysis };
+          }
+        }
+        
+        // Calculate maximum safe buy amount (percentage of pool)
+        const MAX_BUY_POOL_PERCENTAGE = parseFloat(process.env.MAX_BUY_POOL_PERCENTAGE) || 0.10; // 10% max
+        const maxSafeBuyAmount = liquidityAnalysis.solLiquidity * MAX_BUY_POOL_PERCENTAGE;
+        
+        // Adjust buy amount if it exceeds safe limit
+        if (finalBuyAmount > maxSafeBuyAmount) {
+          const originalAmount = finalBuyAmount;
+          finalBuyAmount = maxSafeBuyAmount;
+          console.log(chalk.cyan(`[${utcNow()}] 📊 POSITION SIZING: Reduced buy from ${originalAmount.toFixed(4)} to ${finalBuyAmount.toFixed(4)} SOL (${(MAX_BUY_POOL_PERCENTAGE * 100).toFixed(1)}% of pool)`));
+        } else {
+          const percentageOfPool = (finalBuyAmount / liquidityAnalysis.solLiquidity) * 100;
+          console.log(chalk.cyan(`[${utcNow()}] 📊 POSITION SIZING: Buy amount ${finalBuyAmount.toFixed(4)} SOL (${percentageOfPool.toFixed(2)}% of pool)`));
+        }
+        
+        // Ensure minimum buy amount
+        const MIN_BUY_AMOUNT = parseFloat(minAmount) || 0.04;
+        if (finalBuyAmount < MIN_BUY_AMOUNT) {
+          console.log(chalk.yellow(`[${utcNow()}] ⚠️ BUY SKIPPED: Adjusted amount (${finalBuyAmount.toFixed(4)} SOL) below minimum (${MIN_BUY_AMOUNT} SOL)`));
+          return { success: false, reason: 'below_minimum_after_adjustment' };
+        }
+      }
 
       const {txid, token_amount} = await token_buy(tokenMint, finalBuyAmount, pool_status, context);
       const endTime2 = performance.now();
       const durationUs2 = Math.round((endTime2 - startTime1) * 1000);
       console.log(`[${utcNow()}] 🎯 Time taken to get setup after buy: ${durationUs2}μs`);
-      console.log(chalk.bgGreen.black(`[${utcNow()}] ✅ Token buy executed for: ${tokenMint}`));
+      console.log(chalk.bgGreen.black(`[${utcNow()}] ✅ Token buy executed for: ${tokenMint} (amount: ${finalBuyAmount.toFixed(4)} SOL)`));
       console.log(chalk.bgGreen.black(`[${utcNow()}] txid: https://solscan.io/tx/${txid}`));
       
       // Record price for volatility tracking
@@ -748,7 +786,7 @@ class TransactionMonitor extends EventEmitter {
       addPosition(tokenMint, user, targetTokenAmount, token_amount);
 
      
-      return { success: true, txid, tokenMint };
+      return { success: true, txid, tokenMint, buyAmount: finalBuyAmount };
     } catch (buyError) {
       const errorMessage = buyError.message || buyError.toString();
 
@@ -867,31 +905,41 @@ class TransactionMonitor extends EventEmitter {
       
       if (transactionTimestamp) {
         recordTransactionTimestamp(signature, transactionTimestamp);
+        const delayInfo = calculateDelay(transactionTimestamp);
         const shouldExecute = shouldExecuteTrade(transactionTimestamp, "SELL");
         
+        // Log latency compensation details
+        logLatencyCompensation(delayInfo, shouldExecute.adjustment, tokenMint, "SELL");
+        
         if (!shouldExecute.shouldExecute) {
-          console.log(chalk.yellow(`[${utcNow()}] ⏱️  SELL SKIPPED (latency): ${shouldExecute.reason}`));
-          return { success: false, reason: 'latency_too_high', delay: shouldExecute.delayInfo };
+          console.log(chalk.red(`[${utcNow()}] ❌ SELL BLOCKED (latency): ${shouldExecute.reason} - delay: ${delayInfo.delayMinutes.toFixed(2)} min`));
+          return { success: false, reason: 'latency_too_high', delay: delayInfo };
         }
         
         // Adjust sell amount based on delay (be more conservative with high delays)
-        const delayInfo = calculateDelay(transactionTimestamp);
         const conservativeAmount = getConservativeSellAmount(copySellAmount, delayInfo);
         
-        if (conservativeAmount < copySellAmount && conservativeAmount > 0) {
-          console.log(chalk.cyan(`[${utcNow()}] ⏱️  Latency adjustment: Reducing sell from ${copySellAmount.toLocaleString()} to ${conservativeAmount.toLocaleString()} tokens (${delayInfo.delayMinutes.toFixed(1)} min delay)`));
+        if (conservativeAmount < copySellAmount) {
+          const reductionPercent = ((copySellAmount - conservativeAmount) / copySellAmount * 100).toFixed(1);
+          console.log(chalk.yellow(`[${utcNow()}] ⏱️  LATENCY ADJUSTMENT: Reducing sell by ${reductionPercent}% (${copySellAmount.toLocaleString()} → ${conservativeAmount.toLocaleString()} tokens) due to ${delayInfo.delayLevel} delay (${delayInfo.delayMinutes.toFixed(1)} min)`));
         }
         
         // Use conservative amount if calculated
         const adjustedSellAmount = conservativeAmount > 0 ? conservativeAmount : copySellAmount;
         
         if (adjustedSellAmount <= 0) {
-          console.log(chalk.yellow(`[${utcNow()}] ⚠️  SELL: Adjusted amount is 0 due to high latency, skipping`));
-          return { success: false, reason: 'latency_adjusted_to_zero' };
+          console.log(chalk.red(`[${utcNow()}] ❌ SELL BLOCKED: Adjusted amount is 0 due to ${delayInfo.delayLevel} latency (${delayInfo.delayMinutes.toFixed(1)} min)`));
+          return { success: false, reason: 'latency_adjusted_to_zero', delayInfo };
         }
         
         // Update sell amount to conservative value
         copySellAmount = adjustedSellAmount;
+        
+        // Increase slippage tolerance for delayed trades (market may have moved)
+        if (delayInfo.delayLevel === 'high' || delayInfo.delayLevel === 'medium') {
+          console.log(chalk.cyan(`[${utcNow()}] 📈 Increasing slippage tolerance for delayed trade (${delayInfo.delayLevel} delay)`));
+          // The dynamic slippage module will handle this based on recorded prices
+        }
       }
       
       // LIQUIDITY ANALYSIS: Check pool depth before selling

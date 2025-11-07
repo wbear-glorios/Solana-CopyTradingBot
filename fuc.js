@@ -42,88 +42,119 @@ async function getTradingBlockhash() {
   }
 }
 
-export const token_buy = async (mint, sol_amount, pool_status,  context) => {
+export const token_buy = async (mint, sol_amount, pool_status, context) => {
  
   if (!mint) {
     throw new Error("mint is required and was not provided.");
   }
-  // const txid = await swap("BUY", mint, sol_amount * LAMPORTS_PER_SOL);
+  
   let txid = "";
   let token_amount = 0;
+  
+  // INTELLIGENT ROUTING: Choose best execution method
+  console.log(chalk.cyan(`[${new Date().toISOString()}] 🔀 ROUTING: Using ${pool_status} for buy (${sol_amount.toFixed(4)} SOL)`));
 
-  // console.log(chalk.green(`🟢BUY tokenAmount:::${sol_amount} pool_status: ${pool_status} `));
-  if (pool_status == "pumpfun") {
-    // console.log("pumpfun");
-
-    ({txid, token_amount} = await buy_pumpfun(mint, sol_amount * LAMPORTS_PER_SOL, context));
-  }else if (pool_status == "pumpswap") {
-    ({txid, token_amount} = await buy_pumpswap(mint, sol_amount * LAMPORTS_PER_SOL, context));
-  }else {
-    txid = await swap("BUY", mint, sol_amount * LAMPORTS_PER_SOL);
-    token_amount = await getSplTokenBalance(mint);
+  try {
+    if (pool_status == "pumpfun") {
+      // Use PumpFun SDK for bonding curve trades
+      ({txid, token_amount} = await buy_pumpfun(mint, sol_amount * LAMPORTS_PER_SOL, context));
+      console.log(chalk.green(`[${new Date().toISOString()}] ✅ PumpFun buy successful`));
+    } else if (pool_status == "pumpswap") {
+      // Use PumpSwap for pool trades
+      ({txid, token_amount} = await buy_pumpswap(mint, sol_amount * LAMPORTS_PER_SOL, context));
+      console.log(chalk.green(`[${new Date().toISOString()}] ✅ PumpSwap buy successful`));
+    } else {
+      // Use Jupiter aggregator for Raydium and other DEXs (best price routing)
+      console.log(chalk.cyan(`[${new Date().toISOString()}] 🔀 Using Jupiter aggregator for ${pool_status || 'unknown pool'}`));
+      txid = await swap("BUY", mint, sol_amount * LAMPORTS_PER_SOL, context, pool_status);
+      token_amount = await getSplTokenBalance(mint);
+      console.log(chalk.green(`[${new Date().toISOString()}] ✅ Jupiter swap successful`));
+    }
+  } catch (primaryError) {
+    console.error(chalk.red(`[${new Date().toISOString()}] ❌ Primary buy method (${pool_status}) failed: ${primaryError.message}`));
+    
+    // FALLBACK ROUTING: Try Jupiter as fallback if primary method fails
+    if (pool_status !== "raydium" && pool_status !== null) {
+      console.log(chalk.yellow(`[${new Date().toISOString()}] 🔄 FALLBACK: Attempting Jupiter aggregator...`));
+      try {
+        txid = await swap("BUY", mint, sol_amount * LAMPORTS_PER_SOL, context, pool_status);
+        token_amount = await getSplTokenBalance(mint);
+        console.log(chalk.green(`[${new Date().toISOString()}] ✅ Fallback Jupiter swap successful`));
+      } catch (fallbackError) {
+        console.error(chalk.red(`[${new Date().toISOString()}] ❌ Fallback also failed: ${fallbackError.message}`));
+        throw primaryError; // Throw original error
+      }
+    } else {
+      throw primaryError;
+    }
   }
 
- 
   return {txid, token_amount};
 };
 
 export const token_sell = async (mint, tokenAmount, pool_status, isFull, context) => {
-  try {
-   
-    if (!mint) {
-      throw new Error("mint is required and was not provided.");
-    }
-    console.log(chalk.red(`🔴SELL tokenAmount:::${tokenAmount} pool_status: ${pool_status} `));
-
-    const currentUTC = new Date();
-    await new Promise(res => setTimeout(res, sell_delay));
-    let txid = "";
-    if (pool_status == "pumpfun") {
-      txid = await sell_pumpfun(mint, tokenAmount, isFull, context);
-    } else if (pool_status == "pumpswap") {
-      txid = await sell_pumpswap(mint, tokenAmount, context, isFull);
-    }else{
-      txid = await swap("SELL", mint, tokenAmount);
-    }
-   
-   
-
-    // const txid = await swap("SELL", mint, tokenAmount);
-    const endUTC = new Date();
-    const timeTaken = endUTC.getTime() - currentUTC.getTime();
-    console.log(`⏱️ Total SELL time taken: ${timeTaken}ms (${(timeTaken / 1000).toFixed(2)}s)`);
-
-    if (txid === "stop") {
-      console.log(chalk.red(`[${new Date().toISOString()}] 🛑 Swap returned "stop" - no balance for ${mint}`));
-      return "stop";
-    }
-
-    if (txid) {
-      console.log(chalk.green(`Successfully sold ${tokenAmount} tokens : https://solscan.io/tx/${txid}`));
-      return txid;
-    }else{
-      txid = await swap("SELL", mint, tokenAmount);
-      const endUTC = new Date();
-    const timeTaken = endUTC.getTime() - currentUTC.getTime();
-    console.log(`⏱️ Total SELL time taken using swap: ${timeTaken}ms (${(timeTaken / 1000).toFixed(2)}s)`);
-
-      return txid;
-    }
-
-    return null;
-  } catch (error) {
-    txid = await swap("SELL", mint, tokenAmount);
-    console.error("Error in token_sell:", error.message);
-    const endUTC = new Date();
-    const timeTaken = endUTC.getTime() - currentUTC.getTime();
-    console.log(`⏱️ Total SELL time taken using swap from error: ${timeTaken}ms (${(timeTaken / 1000).toFixed(2)}s)`);
-
-      return txid;
-    if (error.response?.data) {
-      console.error("API Error details:", error.response.data);
-    }
-    return null;
+  if (!mint) {
+    throw new Error("mint is required and was not provided.");
   }
+  
+  console.log(chalk.red(`🔴SELL tokenAmount:::${tokenAmount} pool_status: ${pool_status} `));
+  
+  // INTELLIGENT ROUTING: Choose best execution method
+  console.log(chalk.cyan(`[${new Date().toISOString()}] 🔀 ROUTING: Using ${pool_status} for sell (${tokenAmount.toLocaleString()} tokens)`));
+
+  const currentUTC = new Date();
+  await new Promise(res => setTimeout(res, sell_delay));
+  
+  let txid = "";
+  
+  try {
+    if (pool_status == "pumpfun") {
+      // Use PumpFun SDK for bonding curve sells
+      txid = await sell_pumpfun(mint, tokenAmount, isFull, context);
+      console.log(chalk.green(`[${new Date().toISOString()}] ✅ PumpFun sell successful`));
+    } else if (pool_status == "pumpswap") {
+      // Use PumpSwap for pool sells
+      txid = await sell_pumpswap(mint, tokenAmount, context, isFull);
+      console.log(chalk.green(`[${new Date().toISOString()}] ✅ PumpSwap sell successful`));
+    } else {
+      // Use Jupiter aggregator for best price routing
+      console.log(chalk.cyan(`[${new Date().toISOString()}] 🔀 Using Jupiter aggregator for ${pool_status || 'unknown pool'}`));
+      txid = await swap("SELL", mint, tokenAmount, context, pool_status);
+      console.log(chalk.green(`[${new Date().toISOString()}] ✅ Jupiter swap successful`));
+    }
+  } catch (primaryError) {
+    console.error(chalk.red(`[${new Date().toISOString()}] ❌ Primary sell method (${pool_status}) failed: ${primaryError.message}`));
+    
+    // FALLBACK ROUTING: Try Jupiter as fallback if primary method fails
+    if (pool_status !== "raydium" && pool_status !== null) {
+      console.log(chalk.yellow(`[${new Date().toISOString()}] 🔄 FALLBACK: Attempting Jupiter aggregator...`));
+      try {
+        txid = await swap("SELL", mint, tokenAmount, context, pool_status);
+        console.log(chalk.green(`[${new Date().toISOString()}] ✅ Fallback Jupiter swap successful`));
+      } catch (fallbackError) {
+        console.error(chalk.red(`[${new Date().toISOString()}] ❌ Fallback also failed: ${fallbackError.message}`));
+        throw primaryError; // Throw original error
+      }
+    } else {
+      throw primaryError;
+    }
+  }
+
+  const endUTC = new Date();
+  const timeTaken = endUTC.getTime() - currentUTC.getTime();
+  console.log(`⏱️ Total SELL time taken: ${timeTaken}ms (${(timeTaken / 1000).toFixed(2)}s)`);
+
+  if (txid === "stop") {
+    console.log(chalk.red(`[${new Date().toISOString()}] 🛑 Swap returned "stop" - no balance for ${mint}`));
+    return "stop";
+  }
+
+  if (txid) {
+    console.log(chalk.green(`Successfully sold ${tokenAmount} tokens : https://solscan.io/tx/${txid}`));
+    return txid;
+  }
+  
+  return null;
 };
 
 export async function getBondingCurveAddress(mintAddress) {

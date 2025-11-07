@@ -11,6 +11,7 @@ import bs58 from "bs58";
 import { getSplTokenBalance } from "./fuc.js";
 import { decodedPrivateKey } from "./index.js";
 import { logToFile } from "./logger.js";
+import { getSlippageForAction, logSlippageCalculation } from "./dynamic_slippage.js";
 dotenv.config();
 
 // SWAP_METHOD: "0slot", "nozomi", "race", "solana"
@@ -74,10 +75,23 @@ export const rpc_connection = () => {
   return new Connection(process.env.RPC_URL, "confirmed");
 };
 
-const getResponse = async (tokenA, tokenB, amount, slippageBps, anchorWallet) => {
+const getResponse = async (tokenA, tokenB, amount, slippageBps, anchorWallet, tokenMint, action) => {
+  // Use dynamic slippage if we have token context
+  let finalSlippageBps = slippageBps;
+  
+  if (tokenMint && action) {
+    const slippageResult = getSlippageForAction(tokenMint, action, null, null);
+    finalSlippageBps = slippageResult.finalBps;
+    
+    // Log slippage calculation for transparency
+    if (parseInt(process.env.LOG_SLIPPAGE) === 1) {
+      logSlippageCalculation(slippageResult, tokenMint, action);
+    }
+  }
+  
   const quoteResponse = (
     await axios.get(
-      `https://lite-api.jup.ag/swap/v1/quote?inputMint=${tokenA}&outputMint=${tokenB}&amount=${amount}&slippageBps=${slippageBps}`
+      `https://lite-api.jup.ag/swap/v1/quote?inputMint=${tokenA}&outputMint=${tokenB}&amount=${amount}&slippageBps=${finalSlippageBps}`
     )
   ).data;
 
@@ -190,7 +204,7 @@ export const getBalance = async () => {
   return balance / LAMPORTS_PER_SOL;
 };
 
-export const swap = async (action, mint, amount) => {
+export const swap = async (action, mint, amount, context = null, poolStatus = null) => {
   const SOL_ADDRESS = "So11111111111111111111111111111111111111112";
   const RETRY_DELAY = Number(process.env.RETRY_DELAY) || 1000; // fallback to 1s if not set
 
@@ -201,13 +215,15 @@ export const swap = async (action, mint, amount) => {
     const wallet = await loadwallet();
 
     // Determine tokenA and tokenB based on action and mint
-    let tokenA, tokenB;
+    let tokenA, tokenB, tokenMint;
     if (action === "BUY") {
       tokenA = SOL_ADDRESS;
       tokenB = mint;
+      tokenMint = mint; // Token we're buying
     } else if (action === "SELL") {
       tokenA = mint;
       tokenB = SOL_ADDRESS;
+      tokenMint = mint; // Token we're selling
     } else {
       throw new Error(`Unknown action: ${action}`);
     }
@@ -236,7 +252,8 @@ export const swap = async (action, mint, amount) => {
         }
 
         const startTime = Date.now();
-        const quoteData = await getResponse(tokenA, tokenB, amount, process.env.SLIPPAGE_BPS || "50", wallet);
+        // Pass tokenMint and action for dynamic slippage calculation
+        const quoteData = await getResponse(tokenA, tokenB, amount, process.env.SLIPPAGE_BPS || "50", wallet, tokenMint, action);
         const endTime = Date.now();
         console.log(chalk.blue(`getResponse took ${endTime - startTime}ms (${((endTime - startTime) / 1000).toFixed(2)}s)`));
 

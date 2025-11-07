@@ -66,7 +66,8 @@ async function closeTokenAccount(connection, payer, tokenAccount, owner) {
     // If there are tokens, try to sell them first
     if (tokenAmount > 0) {
       console.log(`💰 Swapping all tokens for mint: ${mint} (amount: ${tokenAmount})`);
-      const swapTxid = await swap("SELL", mint, Number(tokenAmount));
+      // Pass null context and pool_status for tokenclose (not critical path)
+      const swapTxid = await swap("SELL", mint, Number(tokenAmount), null, null);
       if (swapTxid && swapTxid !== "stop") {
         removeAtaFromCache(mint, owner.toString());
         console.log(`✅ Successfully swapped tokens! Transaction: https://solscan.io/tx/${swapTxid}`);
