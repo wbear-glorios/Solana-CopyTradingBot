@@ -58,18 +58,36 @@ export function calculateDelay(transactionTimestamp) {
   if (!transactionTimestamp) return null;
   
   const now = Date.now();
-  const transactionTime = typeof transactionTimestamp === 'number' 
+  let transactionTime = typeof transactionTimestamp === 'number' 
     ? transactionTimestamp 
     : new Date(transactionTimestamp).getTime();
   
+  // Safety check: if timestamp is in seconds (Unix format), convert to milliseconds
+  if (transactionTime > 0 && transactionTime < 1e12) {
+    transactionTime = transactionTime * 1000;
+  }
+  
+  // Validate timestamp is reasonable (not more than 1 year in the past or 1 hour in the future)
+  const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000);
+  const oneHourFromNow = now + (60 * 60 * 1000);
+  
+  if (transactionTime < oneYearAgo || transactionTime > oneHourFromNow) {
+    // Invalid timestamp, return null to skip latency check
+    console.warn(`[${utcNow()}] ⚠️ Invalid transaction timestamp: ${transactionTime} (now: ${now})`);
+    return null;
+  }
+  
   const delayMs = now - transactionTime;
   
+  // Additional safety: if delay is negative (transaction in future) or unreasonably large, cap it
+  const safeDelayMs = Math.max(0, Math.min(delayMs, LATENCY_CONFIG.MAX_ACCEPTABLE_DELAY_MS * 10));
+  
   return {
-    delayMs,
-    delaySeconds: delayMs / 1000,
-    delayMinutes: delayMs / 60000,
-    isAcceptable: delayMs <= LATENCY_CONFIG.MAX_ACCEPTABLE_DELAY_MS,
-    delayLevel: getDelayLevel(delayMs)
+    delayMs: safeDelayMs,
+    delaySeconds: safeDelayMs / 1000,
+    delayMinutes: safeDelayMs / 60000,
+    isAcceptable: safeDelayMs <= LATENCY_CONFIG.MAX_ACCEPTABLE_DELAY_MS,
+    delayLevel: getDelayLevel(safeDelayMs)
   };
 }
 

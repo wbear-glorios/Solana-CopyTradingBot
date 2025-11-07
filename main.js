@@ -765,12 +765,84 @@ class TransactionMonitor extends EventEmitter {
         }
       }
 
+      // CRITICAL SAFETY CHECK: Verify wallet has sufficient balance before buying
+      // If insufficient, scale down proportionally to available balance
+      const { checkWalletBalance } = await import("./fuc.js");
+      const balanceInfo = await checkWalletBalance(finalBuyAmount);
+      
+      if (balanceInfo.hasSufficientFunds === false) {
+        // Calculate maximum affordable amount (balance - fees - small buffer)
+        const FEE_RESERVE = 0.01; // SOL for transaction fees
+        const BUFFER = 0.001; // Small buffer for safety
+        const maxAffordableAmount = Math.max(0, balanceInfo.balance - FEE_RESERVE - BUFFER);
+        
+        // Check if we can afford at least the minimum buy amount
+        const MIN_BUY_AMOUNT = parseFloat(minAmount) || 0.04;
+        
+        if (maxAffordableAmount >= MIN_BUY_AMOUNT) {
+          // Scale down proportionally - use what we can afford
+          const originalAmount = finalBuyAmount;
+          finalBuyAmount = maxAffordableAmount;
+          console.log(chalk.yellow(`[${utcNow()}] ⚠️ INSUFFICIENT BALANCE: Scaling down buy amount`));
+          console.log(chalk.yellow(`[${utcNow()}] 💰 Original amount: ${originalAmount.toFixed(4)} SOL`));
+          console.log(chalk.yellow(`[${utcNow()}] 💰 Scaled down to: ${finalBuyAmount.toFixed(4)} SOL (${((finalBuyAmount / originalAmount) * 100).toFixed(1)}% of original)`));
+          console.log(chalk.yellow(`[${utcNow()}] 💰 Available balance: ${balanceInfo.balance.toFixed(4)} SOL`));
+        } else {
+          // Can't afford even the minimum - skip the buy
+          console.error(chalk.red(`[${utcNow()}] ❌ INSUFFICIENT BALANCE: Cannot buy ${tokenMint.slice(0, 8)}...`));
+          console.error(chalk.red(`[${utcNow()}] 💰 Current balance: ${balanceInfo.balance.toFixed(4)} SOL`));
+          console.error(chalk.red(`[${utcNow()}] 💰 Required minimum: ${(MIN_BUY_AMOUNT + FEE_RESERVE).toFixed(4)} SOL`));
+          console.error(chalk.red(`[${utcNow()}] 💰 Max affordable: ${maxAffordableAmount.toFixed(4)} SOL (below minimum)`));
+          console.error(chalk.red(`[${utcNow()}] ⚠️ BUY SKIPPED: Insufficient funds`));
+          return { success: false, reason: 'insufficient_balance', balance: balanceInfo.balance, required: balanceInfo.required };
+        }
+      }
+
       const {txid, token_amount} = await token_buy(tokenMint, finalBuyAmount, pool_status, context);
+      
+      // Check if buy actually succeeded (txid and token_amount should not be null)
+      if (!txid || txid === "null" || token_amount === null || token_amount === undefined) {
+        throw new Error(`Buy transaction failed: txid=${txid}, token_amount=${token_amount}`);
+      }
+      
       const endTime2 = performance.now();
       const durationUs2 = Math.round((endTime2 - startTime1) * 1000);
       console.log(`[${utcNow()}] 🎯 Time taken to get setup after buy: ${durationUs2}μs`);
       console.log(chalk.bgGreen.black(`[${utcNow()}] ✅ Token buy executed for: ${tokenMint} (amount: ${finalBuyAmount.toFixed(4)} SOL)`));
       console.log(chalk.bgGreen.black(`[${utcNow()}] txid: https://solscan.io/tx/${txid}`));
+      
+      // Verify tokens were actually received (wait a bit for transaction to settle)
+      let actualBalance = null;
+      const verifyRetries = 3;
+      const verifyDelay = 1000; // 1 second between retries
+      
+      for (let verifyRetry = 0; verifyRetry < verifyRetries; verifyRetry++) {
+        try {
+          actualBalance = await getSplTokenBalance(tokenMint);
+          if (actualBalance !== null && actualBalance > 0) {
+            console.log(chalk.green(`[${utcNow()}] ✅ Verified token balance: ${actualBalance.toLocaleString()} tokens received`));
+            break;
+          }
+          
+          if (verifyRetry < verifyRetries - 1) {
+            console.log(chalk.yellow(`[${utcNow()}] ⏳ Waiting for tokens to settle (attempt ${verifyRetry + 1}/${verifyRetries})...`));
+            await new Promise(resolve => setTimeout(resolve, verifyDelay));
+          }
+        } catch (verifyError) {
+          if (verifyRetry < verifyRetries - 1) {
+            console.log(chalk.yellow(`[${utcNow()}] ⏳ Balance verification failed, retrying...`));
+            await new Promise(resolve => setTimeout(resolve, verifyDelay));
+          }
+        }
+      }
+      
+      // Use actual balance if available, otherwise use expected amount
+      const finalTokenAmount = actualBalance !== null && actualBalance > 0 ? actualBalance : (token_amount || 0);
+      
+      if (actualBalance === null || actualBalance <= 0) {
+        const safeTokenAmount = token_amount || 0;
+        console.log(chalk.yellow(`[${utcNow()}] ⚠️ WARNING: Could not verify token balance after buy. Using expected amount: ${safeTokenAmount.toLocaleString()}`));
+      }
       
       // Record price for volatility tracking
       if (context && tokenDecimal && tokenChanges !== 0) {
@@ -783,15 +855,21 @@ class TransactionMonitor extends EventEmitter {
       
       // Calculate target wallet's token amount from transaction data
       const targetTokenAmount = Math.abs(tokenChanges);
-      addPosition(tokenMint, user, targetTokenAmount, token_amount);
+      addPosition(tokenMint, user, targetTokenAmount, finalTokenAmount);
 
      
       return { success: true, txid, tokenMint, buyAmount: finalBuyAmount };
     } catch (buyError) {
       const errorMessage = buyError.message || buyError.toString();
 
-      // Handle insufficient funds error
-      if (errorMessage.includes("INSUFFICIENT_FUNDS")) {
+      // Handle insufficient funds error (check for multiple error message formats)
+      const isInsufficientFunds = errorMessage.includes("INSUFFICIENT_FUNDS") || 
+                                   errorMessage.includes("insufficient funds") || 
+                                   errorMessage.includes("insufficient lamports") ||
+                                   errorMessage.includes("0x1") ||
+                                   errorMessage.includes("custom program error: 0x1");
+      
+      if (isInsufficientFunds) {
         console.error(chalk.red(`[${utcNow()}] ❌ INSUFFICIENT_FUNDS: Cannot buy ${tokenMint}`));
         console.error(chalk.red(`[${utcNow()}] 💰 Please add more SOL to your wallet to continue trading`));
         console.error(chalk.red(`[${utcNow()}] ⚠️ DISABLING BUYING - Bot will continue for selling`));
@@ -799,7 +877,7 @@ class TransactionMonitor extends EventEmitter {
         logToFile(chalk.red(`[${utcNow()}] ⚠️ BUYING DISABLED - Bot continues for selling`));
 
         // Send Telegram notification (only if it's a real insufficient funds error and alerts are enabled)
-        if ((errorMessage.includes("insufficient funds") || errorMessage.includes("0x1")) && ENABLE_INSUFFICIENT_FUNDS_ALERTS) {
+        if (ENABLE_INSUFFICIENT_FUNDS_ALERTS) {
           try {
             // Extract balance from error message if available
             const balanceMatch = errorMessage.match(/Wallet balance ([\d.]+) SOL/);
@@ -879,10 +957,34 @@ class TransactionMonitor extends EventEmitter {
       const targetSellAmount = Math.abs(tokenChanges);
       
       // Get exact sell amount based on target wallet's sell amount
-      const sellData = getExactSellAmount(tokenMint, user, targetSellAmount);
+      let sellData = getExactSellAmount(tokenMint, user, targetSellAmount);
+      
+      // FALLBACK: If no tracked position, check if we actually have tokens in wallet
       if (!sellData) {
-        console.log(chalk.yellow(`[${utcNow()}] ⚠️  SELL: No matching purchase found for ${shortTokenName} from wallet ${user.slice(0, 8)}... (target sell: ${(targetSellAmount || 0).toLocaleString()}), skipping`));
-        return { success: false, reason: 'no_matching_purchase' };
+        try {
+          const { getSplTokenBalance } = await import("./fuc.js");
+          const actualBalance = await getSplTokenBalance(tokenMint);
+          
+          if (actualBalance && actualBalance > 0) {
+            // We have tokens but no tracked position - sell all tokens we have
+            // This handles cases where tokens were bought before bot started or position tracking was lost
+            const ourSellAmount = actualBalance; // Sell all we have
+            
+            console.log(chalk.cyan(`[${utcNow()}] 💡 FALLBACK SELL: No tracked position for ${shortTokenName}, but wallet has ${actualBalance.toLocaleString()} tokens. Selling all.`));
+            
+            sellData = {
+              ourSellAmount: ourSellAmount,
+              purchase: null,
+              isFallback: true
+            };
+          } else {
+            console.log(chalk.yellow(`[${utcNow()}] ⚠️  SELL: No matching purchase found for ${shortTokenName} from wallet ${user.slice(0, 8)}... (target sell: ${(targetSellAmount || 0).toLocaleString()}), and no tokens in wallet. Skipping`));
+            return { success: false, reason: 'no_matching_purchase' };
+          }
+        } catch (balanceError) {
+          console.log(chalk.yellow(`[${utcNow()}] ⚠️  SELL: No matching purchase found for ${shortTokenName} from wallet ${user.slice(0, 8)}... (target sell: ${(targetSellAmount || 0).toLocaleString()}), and couldn't check balance. Skipping`));
+          return { success: false, reason: 'no_matching_purchase' };
+        }
       }
       
       let copySellAmount = sellData.ourSellAmount;
@@ -894,9 +996,34 @@ class TransactionMonitor extends EventEmitter {
       // LATENCY COMPENSATION: Check if we should execute based on delay
       let transactionTimestamp = null;
       if (context?.timestamp) {
-        transactionTimestamp = typeof context.timestamp === 'string' 
+        let ts = typeof context.timestamp === 'string' 
           ? parseInt(context.timestamp) 
           : context.timestamp;
+        
+        // Convert to number if it's a BigInt or string
+        if (typeof ts === 'bigint') {
+          ts = Number(ts);
+        }
+        
+        // Check if timestamp is in seconds (Unix timestamp) or milliseconds
+        // Unix timestamps are typically < 1e12 (before year 2286), milliseconds are > 1e12
+        // If it's in seconds, convert to milliseconds
+        if (ts > 0 && ts < 1e12) {
+          ts = ts * 1000; // Convert seconds to milliseconds
+        }
+        
+        // Validate timestamp is reasonable (not too old or in the future)
+        const now = Date.now();
+        const oneYearAgo = now - (365 * 24 * 60 * 60 * 1000);
+        const oneHourFromNow = now + (60 * 60 * 1000);
+        
+        if (ts < oneYearAgo || ts > oneHourFromNow) {
+          // Timestamp is invalid, use estimated delay instead
+          console.log(chalk.yellow(`[${utcNow()}] ⚠️ Invalid timestamp from context (${ts}), using estimated delay`));
+          transactionTimestamp = now - 60000; // Estimate 1 minute delay
+        } else {
+          transactionTimestamp = ts;
+        }
       } else if (signature) {
         // Try to extract timestamp from transaction if available
         // For now, assume current time minus some delay estimation
@@ -1056,8 +1183,10 @@ class TransactionMonitor extends EventEmitter {
           console.log(chalk.bgGreen.white(`[${utcNow()}] ✅  ${sellType} ${matchType} SELL EXECUTED: ${(copySellAmount || 0).toLocaleString()} tokens sold (following ${user.slice(0, 8)}... target: ${(targetSellAmount || 0).toLocaleString()})`));
           console.log(chalk.bgGreen.white(`[${utcNow()}] ✅  sell txid: https://solscan.io/tx/${txid}`));
           
-          // Remove the specific purchase that was sold
-          if (sellData.isProportional) {
+          // Remove the specific purchase that was sold (skip if this was a fallback sell with no tracked purchase)
+          if (sellData.isFallback) {
+            console.log(chalk.cyan(`[${utcNow()}] 💡 FALLBACK SELL: No purchase to remove (tokens were not tracked)`));
+          } else if (sellData.isProportional) {
             const position = getPosition(tokenMint, user);
             if (position) {
               position.totalAmount -= copySellAmount;
@@ -1132,27 +1261,18 @@ class TransactionMonitor extends EventEmitter {
         if (!this.isRunning) return;
         
         if (user === MY_WALLET) {
-          // console.log(chalk.bgBlue.white(`[${utcNow()}] 🏠 MY WALLET transaction detected: ${shortTokenName} `));
+          console.log(chalk.bgBlue.white(`[${utcNow()}] 🏠 MY WALLET transaction detected: ${shortTokenName} `));
           
           const price = Math.abs(solChanges / (tokenChanges * 10 ** (9 - tokenDecimal))) / 10**9; // Convert to SOL per token
           // Update token portfolio for wallet transactions
           const tokenEntry = this.tokenPortfolio.updateTokenEntry(tokenMint, Math.abs(solChanges), true, tokenDecimal, price);
           
-          // Track position for this specific target wallet
-          // const boughtAmount = Math.abs(tokenChanges);
-          // addPosition(tokenMint, user, boughtAmount);
+          // Track position for this specific target wallet (MY_WALLET)
+          // This allows the bot to monitor and sell tokens bought from MY_WALLET
+          const boughtAmount = Math.abs(tokenChanges);
+          addPosition(tokenMint, user, boughtAmount, boughtAmount);
           
-          // // Reset buying flag and cleanup
-          // this.processingTokens.delete(tokenMint);
-          
-          // Send buy alert with proper data
-          // await sendBuyAlert({ 
-          //   tokenMint, 
-          //   amount: (Math.abs(solChanges) / 10**9).toFixed(6) + ' SOL',
-          //   price: price.toFixed(8),
-          //   txid: signature,
-          //   reason: 'wallet_buy'
-          // });
+          console.log(chalk.cyan(`[${utcNow()}] 📈 Position tracked for MY_WALLET buy: ${shortTokenName} | Amount: ${boughtAmount.toLocaleString()} tokens`));
         } else {
           // Spawn buy transaction processing
           this.spawn(this.processBuyTransaction.bind(this), transactionData, startTime1)

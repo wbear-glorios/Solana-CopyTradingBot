@@ -19,7 +19,9 @@ const SWAP_METHOD = (process.env.SWAP_METHOD || "solana").toLowerCase();
 
 const NOZOMI_URL = process.env.NOZOMI_URL;
 const NOZOMI_UUID = process.env.NOZOMI_UUID;
-const nozomiConnection = new Connection(`${NOZOMI_URL}?c=${NOZOMI_UUID}`);
+const nozomiConnection = (NOZOMI_URL && NOZOMI_UUID) 
+  ? new Connection(`${NOZOMI_URL}?c=${NOZOMI_UUID}`)
+  : null;
 
 const NOZOMI_TIP_LAMPORTS = Number(process.env.NOZOMI_TIP_LAMPORTS || 200000);
 const JITO_TIP_LAMPORTS = Number(process.env.JITO_TIP || 100000);

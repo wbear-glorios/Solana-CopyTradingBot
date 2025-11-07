@@ -1,0 +1,363 @@
+
+> solana-trading-bot@1.0.0 start
+> node index.js
+
+bigint: Failed to load bindings, pure JS will be used (try npm run rebuild?)
+🔄 Starting Keep-Alive manager for slot connection...
+🔄 Starting Keep-Alive manager for nozomi connection...
+🔄 Starting Keep-Alive manager for rpc connection...
+🔄 Starting ultra-fast background blockhash manager (200ms updates)...
+🚀 Initializing Global Blockhash Manager Service...
+⚙️ Default update interval: 200ms
+✅ Global Blockhash Manager Service initialized
+/home/adminme/Solana-CopyTradingBot
+================================================================================
+🔑 PRIVATE KEY:
+5CQqxvaoL258FSA7PMaV2ZBE4tr57nqNt9DJVtbJLKePaN4ewsNMHFsGtAkJ1ugCDUJjn9boNFW4PrQEJGNgeDRg
+================================================================================
+
+[2025-11-07T18:44:38.074Z] 🚦 Script started for 2 wallets
+[2025-11-07T18:44:38.074Z] 💰 Balance limit set to: 0.03 SOL
+[2025-11-07T18:44:38.074Z] 📱 Insufficient funds alerts: ✅ Enabled
+[2025-11-07T18:44:38.074Z] ⏱️ Alert cooldown: 5 minutes
+[2025-11-07T18:44:38.074Z] 📊 CACHE STATUS OVERVIEW
+[2025-11-07T18:44:38.074Z] 💰 Bought tokens cache status: 0 tokens | Total value: 0.000000 SOL
+[2025-11-07T18:44:38.074Z] 📊 Position tracking status: 0 positions (0 purchases) across 0 tokens | Total value: 0.000000 tokens
+[2025-11-07T18:44:38.075Z] 🔄 BLOCKHASH MANAGEMENT
+🔄 Initializing blockhash manager for connection https://... (200ms updates)
+🔄 Starting ultra-fast background blockhash manager (200ms updates)...
+[2025-11-07T18:44:38.078Z] ✅ Global blockhash manager initialized
+[2025-11-07T18:44:38.078Z] 🔄 Blockhash updates every 200ms in background
+[2025-11-07T18:44:38.078Z] 🏠 WALLET CONFIGURATION
+[2025-11-07T18:44:38.078Z] MY_WALLET: EzDucj8EUkihv2U7ZEh2eBszGHR98kfhuWh6jhra4BQS (Your wallet - starts trading bots for monitoring/selling)
+[2025-11-07T18:44:38.078Z]   1. EzDucj8EUkihv2U7ZEh2eBszGHR98kfhuWh6jhra4BQS
+[2025-11-07T18:44:38.078Z]   2. DDDD2zvzaPMLuZiC2Vos2i6TLFjJJ3bi1pN7kXQc3R5R
+[2025-11-07T18:44:38.078Z] 📊 TRANSACTION LOGIC
+[2025-11-07T18:44:38.078Z] 🏠 MY_WALLET transactions → Start trading bots to monitor and sell tokens
+[2025-11-07T18:44:38.078Z] 🔍 Performing initial balance check...
+✅ Background blockhash manager started successfully
+✅ Blockhash manager initialized successfully for connection https://...
+✅ Global blockhash manager initialized for fuc.js connection
+✅ Background blockhash manager started successfully
+[2025-11-07T18:44:39.125Z] ⏱️ getBalance took 1047ms (1.05s)
+[2025-11-07T18:44:39.126Z] ✅ Initial balance: 0.0393 SOL
+[2025-11-07T18:44:39.126Z] 💰 Fixed buy amount: 0.05 SOL
+[2025-11-07T18:44:39.126Z] 💰 Dynamic buy percentage: 25.0% of target wallet's SOL change
+[2025-11-07T18:44:39.126Z] 💰 Estimated max dynamic amount: 1.2500 SOL
+[2025-11-07T18:44:39.126Z] 💰 Recommended minimum: 6.2500 SOL
+[2025-11-07T18:44:39.126Z] 💰 Safety limit: 0.03 SOL
+[2025-11-07T18:44:39.126Z] ⚠️ Initial balance check passed - but balance is low
+[2025-11-07T18:44:39.126Z] ⚠️ Consider adding more SOL for better trading capacity
+[2025-11-07T18:44:39.126Z] 💡 Send SIGUSR1 signal to see detailed bot status
+[2025-11-07T18:44:39.126Z] 💡 Send SIGUSR3 signal to debug all bot strategies
+[2025-11-07T18:44:39.126Z] 💡 Send SIGUSR6 signal to show blockhash manager status
+[2025-11-07T18:44:39.126Z] 💡 Send SIGUSR7 signal to show position tracking status
+[2025-11-07T18:44:39.126Z] 💡 Use Telegram bot to control start/stop remotely
+[2025-11-07T18:44:39.126Z] 📊 Status display started (every 5s)
+[2025-11-07T18:44:39.128Z] 📊 Status display started (every 5s)
+[2025-11-07T18:44:39.139Z] [Monitor DDDD2zvz...] Ping interval started (every 5s)
+[2025-11-07T18:44:39.141Z] [Monitor EzDucj8E...] Ping interval started (every 5s)
+[2025-11-07T18:45:06.330Z] 🔴 SELL transaction detected: 4vgaa8...
+[2025-11-07T18:45:06.440Z] ⚠️  SELL: No matching purchase found for 4vgaa8... from wallet DDDD2zvz... (target sell: 21,494,234,902,293), and no tokens in wallet. Skipping
+[2025-11-07T18:45:06.448Z] ⚠️ Spawned sell task result: no_matching_purchase
+[2025-11-07T18:45:20.221Z] 💧 Liquidity Analysis for 4ADpGH7C...:
+   • SOL Liquidity: 40.9375 SOL
+   • Safe to trade: ✅ YES
+[2025-11-07T18:45:20.221Z] 📊 POSITION SIZING: Buy amount 0.2000 SOL (0.49% of pool)
+[2025-11-07T18:45:20.323Z] ⏱️ getBalance took 102ms (0.10s)
+[2025-11-07T18:45:20.323Z] 💰 Wallet balance: 0.0393 SOL
+[2025-11-07T18:45:20.323Z] 💰 Required: 0.2100 SOL (including fees)
+[2025-11-07T18:45:20.323Z] 💰 Sufficient funds: ❌ NO
+[2025-11-07T18:45:20.323Z] ⚠️ INSUFFICIENT BALANCE: Scaling down buy amount
+[2025-11-07T18:45:20.323Z] 💰 Original amount: 0.2000 SOL
+[2025-11-07T18:45:20.324Z] 💰 Scaled down to: 0.0283 SOL (14.1% of original)
+[2025-11-07T18:45:20.324Z] 💰 Available balance: 0.0393 SOL
+[2025-11-07T18:45:20.324Z] 🔀 ROUTING: Using pumpfun for buy (0.0283 SOL)
+Error in buy_pumpfun: ReferenceError: Cannot access 'ataExistsOnChain' before initialization
+    at buy_pumpfun (file:///home/adminme/Solana-CopyTradingBot/swapsdk_0slot.js:474:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async token_buy (file:///home/adminme/Solana-CopyTradingBot/fuc.js:60:31)
+    at async TransactionMonitor.processBuyTransaction (file:///home/adminme/Solana-CopyTradingBot/main.js:801:36)
+    at async TransactionMonitor.executeTask (file:///home/adminme/Solana-CopyTradingBot/main.js:408:22)
+[2025-11-07T18:45:20.357Z] ❌ Primary buy method (pumpfun) failed: Cannot access 'ataExistsOnChain' before initialization
+[2025-11-07T18:45:20.357Z] 🔄 FALLBACK: Attempting Jupiter aggregator...
+⌛⌛⌚⌚Starting swap at Fri, 07 Nov 2025 18:45:20 GMT (1762541120357ms)
+Swapping 28276853.999999996 of So11111111111111111111111111111111111111112 for 4ADpGH7CEDZWZTBom4QaUs2RpvrYqNuBvfurb1wYpump...
+Attempt 1/6
+Attempt 1 failed: Request failed with status code 400
+Retrying in 0.2 seconds (1/5)...
+Attempt 2/6
+Attempt 2 failed: Request failed with status code 400
+Retrying in 0.2 seconds (2/5)...
+Attempt 3/6
+Attempt 3 failed: Request failed with status code 400
+Retrying in 0.2 seconds (3/5)...
+Attempt 4/6
+Attempt 4 failed: Request failed with status code 400
+Retrying in 0.2 seconds (4/5)...
+Attempt 5/6
+Attempt 5 failed: Request failed with status code 400
+Retrying in 0.2 seconds (5/5)...
+Attempt 6/6
+Attempt 6 failed: Request failed with status code 400
+Transaction failed after 6 attempts.
+Swap failed: Request failed with status code 400
+[2025-11-07T18:45:21.976Z] ✅ Fallback Jupiter swap successful
+[2025-11-07T18:45:21.977Z] ❌ Token buy failed: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:45:21.977Z] ❌ Spawned buy task failed for 4ADpGH7CEDZWZTBom4QaUs2RpvrYqNuBvfurb1wYpump: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:45:36.586Z] 🔴 SELL transaction detected: 4ADpGH...
+[2025-11-07T18:45:36.696Z] ⚠️  SELL: No matching purchase found for 4ADpGH... from wallet DDDD2zvz... (target sell: 15,783,567,171,132), and no tokens in wallet. Skipping
+[2025-11-07T18:45:36.697Z] ⚠️ Spawned sell task result: no_matching_purchase
+[2025-11-07T18:45:39.126Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:46:39.127Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:47:39.128Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:47:49.508Z] 💧 Liquidity Analysis for Gk7hisxc...:
+   • SOL Liquidity: 40.5607 SOL
+   • Safe to trade: ✅ YES
+[2025-11-07T18:47:49.508Z] 📊 POSITION SIZING: Buy amount 0.1798 SOL (0.44% of pool)
+[2025-11-07T18:47:49.609Z] ⏱️ getBalance took 101ms (0.10s)
+[2025-11-07T18:47:49.610Z] 💰 Wallet balance: 0.0393 SOL
+[2025-11-07T18:47:49.610Z] 💰 Required: 0.1898 SOL (including fees)
+[2025-11-07T18:47:49.610Z] 💰 Sufficient funds: ❌ NO
+[2025-11-07T18:47:49.610Z] ⚠️ INSUFFICIENT BALANCE: Scaling down buy amount
+[2025-11-07T18:47:49.610Z] 💰 Original amount: 0.1798 SOL
+[2025-11-07T18:47:49.610Z] 💰 Scaled down to: 0.0283 SOL (15.7% of original)
+[2025-11-07T18:47:49.610Z] 💰 Available balance: 0.0393 SOL
+[2025-11-07T18:47:49.610Z] 🔀 ROUTING: Using pumpfun for buy (0.0283 SOL)
+Error in buy_pumpfun: ReferenceError: Cannot access 'ataExistsOnChain' before initialization
+    at buy_pumpfun (file:///home/adminme/Solana-CopyTradingBot/swapsdk_0slot.js:474:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async token_buy (file:///home/adminme/Solana-CopyTradingBot/fuc.js:60:31)
+    at async TransactionMonitor.processBuyTransaction (file:///home/adminme/Solana-CopyTradingBot/main.js:801:36)
+    at async TransactionMonitor.executeTask (file:///home/adminme/Solana-CopyTradingBot/main.js:408:22)
+[2025-11-07T18:47:49.612Z] ❌ Primary buy method (pumpfun) failed: Cannot access 'ataExistsOnChain' before initialization
+[2025-11-07T18:47:49.612Z] 🔄 FALLBACK: Attempting Jupiter aggregator...
+⌛⌛⌚⌚Starting swap at Fri, 07 Nov 2025 18:47:49 GMT (1762541269612ms)
+Swapping 28276853.999999996 of So11111111111111111111111111111111111111112 for Gk7hisxcRzWi63tAbQ6tEA5NaVtupC14jV4UghGmtBsW...
+Attempt 1/6
+Attempt 1 failed: Request failed with status code 400
+Retrying in 0.2 seconds (1/5)...
+Attempt 2/6
+Attempt 2 failed: Request failed with status code 400
+Retrying in 0.2 seconds (2/5)...
+Attempt 3/6
+Attempt 3 failed: Request failed with status code 400
+Retrying in 0.2 seconds (3/5)...
+Attempt 4/6
+Attempt 4 failed: Request failed with status code 400
+Retrying in 0.2 seconds (4/5)...
+Attempt 5/6
+Attempt 5 failed: Request failed with status code 400
+Retrying in 0.2 seconds (5/5)...
+Attempt 6/6
+Attempt 6 failed: Request failed with status code 400
+Transaction failed after 6 attempts.
+Swap failed: Request failed with status code 400
+[2025-11-07T18:47:51.051Z] ✅ Fallback Jupiter swap successful
+[2025-11-07T18:47:51.051Z] ❌ Token buy failed: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:47:51.052Z] ❌ Spawned buy task failed for Gk7hisxcRzWi63tAbQ6tEA5NaVtupC14jV4UghGmtBsW: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:48:15.265Z] 🔴 SELL transaction detected: Gk7his...
+[2025-11-07T18:48:15.372Z] ⚠️  SELL: No matching purchase found for Gk7his... from wallet DDDD2zvz... (target sell: 14,329,396,054,762), and no tokens in wallet. Skipping
+[2025-11-07T18:48:15.372Z] ⚠️ Spawned sell task result: no_matching_purchase
+[2025-11-07T18:48:39.128Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:49:29.542Z] 💧 Liquidity Analysis for A19eJ1jm...:
+   • SOL Liquidity: 35.1539 SOL
+   • Safe to trade: ✅ YES
+[2025-11-07T18:49:29.542Z] 📊 POSITION SIZING: Buy amount 0.1878 SOL (0.53% of pool)
+[2025-11-07T18:49:29.641Z] ⏱️ getBalance took 99ms (0.10s)
+[2025-11-07T18:49:29.642Z] 💰 Wallet balance: 0.0393 SOL
+[2025-11-07T18:49:29.642Z] 💰 Required: 0.1978 SOL (including fees)
+[2025-11-07T18:49:29.642Z] 💰 Sufficient funds: ❌ NO
+[2025-11-07T18:49:29.642Z] ⚠️ INSUFFICIENT BALANCE: Scaling down buy amount
+[2025-11-07T18:49:29.642Z] 💰 Original amount: 0.1878 SOL
+[2025-11-07T18:49:29.642Z] 💰 Scaled down to: 0.0283 SOL (15.1% of original)
+[2025-11-07T18:49:29.642Z] 💰 Available balance: 0.0393 SOL
+[2025-11-07T18:49:29.642Z] 🔀 ROUTING: Using pumpfun for buy (0.0283 SOL)
+Error in buy_pumpfun: ReferenceError: Cannot access 'ataExistsOnChain' before initialization
+    at buy_pumpfun (file:///home/adminme/Solana-CopyTradingBot/swapsdk_0slot.js:474:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async token_buy (file:///home/adminme/Solana-CopyTradingBot/fuc.js:60:31)
+    at async TransactionMonitor.processBuyTransaction (file:///home/adminme/Solana-CopyTradingBot/main.js:801:36)
+    at async TransactionMonitor.executeTask (file:///home/adminme/Solana-CopyTradingBot/main.js:408:22)
+[2025-11-07T18:49:29.643Z] ❌ Primary buy method (pumpfun) failed: Cannot access 'ataExistsOnChain' before initialization
+[2025-11-07T18:49:29.643Z] 🔄 FALLBACK: Attempting Jupiter aggregator...
+⌛⌛⌚⌚Starting swap at Fri, 07 Nov 2025 18:49:29 GMT (1762541369643ms)
+Swapping 28276853.999999996 of So11111111111111111111111111111111111111112 for A19eJ1jm9yfUu3svoEUzucusfSEzpGLHAnoUhxKVpump...
+Attempt 1/6
+Attempt 1 failed: Request failed with status code 400
+Retrying in 0.2 seconds (1/5)...
+Attempt 2/6
+Attempt 2 failed: Request failed with status code 400
+Retrying in 0.2 seconds (2/5)...
+Attempt 3/6
+Attempt 3 failed: Request failed with status code 400
+Retrying in 0.2 seconds (3/5)...
+Attempt 4/6
+Attempt 4 failed: Request failed with status code 400
+Retrying in 0.2 seconds (4/5)...
+Attempt 5/6
+Attempt 5 failed: Request failed with status code 400
+Retrying in 0.2 seconds (5/5)...
+Attempt 6/6
+Attempt 6 failed: Request failed with status code 400
+Transaction failed after 6 attempts.
+Swap failed: Request failed with status code 400
+[2025-11-07T18:49:30.944Z] ✅ Fallback Jupiter swap successful
+[2025-11-07T18:49:30.945Z] ❌ Token buy failed: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:49:30.945Z] ❌ Spawned buy task failed for A19eJ1jm9yfUu3svoEUzucusfSEzpGLHAnoUhxKVpump: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:49:39.129Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:50:01.736Z] 🔴 SELL transaction detected: A19eJ1...
+[2025-11-07T18:50:01.838Z] ⚠️  SELL: No matching purchase found for A19eJ1... from wallet DDDD2zvz... (target sell: 19,989,006,180,196), and no tokens in wallet. Skipping
+[2025-11-07T18:50:01.839Z] ⚠️ Spawned sell task result: no_matching_purchase
+[2025-11-07T18:50:07.759Z] 💧 Liquidity Analysis for CdjDfv9o...:
+   • SOL Liquidity: 44.1862 SOL
+   • Safe to trade: ✅ YES
+[2025-11-07T18:50:07.760Z] 📊 POSITION SIZING: Buy amount 0.2000 SOL (0.45% of pool)
+[2025-11-07T18:50:07.868Z] ⏱️ getBalance took 108ms (0.11s)
+[2025-11-07T18:50:07.868Z] 💰 Wallet balance: 0.0393 SOL
+[2025-11-07T18:50:07.868Z] 💰 Required: 0.2100 SOL (including fees)
+[2025-11-07T18:50:07.868Z] 💰 Sufficient funds: ❌ NO
+[2025-11-07T18:50:07.868Z] ⚠️ INSUFFICIENT BALANCE: Scaling down buy amount
+[2025-11-07T18:50:07.868Z] 💰 Original amount: 0.2000 SOL
+[2025-11-07T18:50:07.868Z] 💰 Scaled down to: 0.0283 SOL (14.1% of original)
+[2025-11-07T18:50:07.868Z] 💰 Available balance: 0.0393 SOL
+[2025-11-07T18:50:07.868Z] 🔀 ROUTING: Using pumpfun for buy (0.0283 SOL)
+Error in buy_pumpfun: ReferenceError: Cannot access 'ataExistsOnChain' before initialization
+    at buy_pumpfun (file:///home/adminme/Solana-CopyTradingBot/swapsdk_0slot.js:474:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async token_buy (file:///home/adminme/Solana-CopyTradingBot/fuc.js:60:31)
+    at async TransactionMonitor.processBuyTransaction (file:///home/adminme/Solana-CopyTradingBot/main.js:801:36)
+    at async TransactionMonitor.executeTask (file:///home/adminme/Solana-CopyTradingBot/main.js:408:22)
+[2025-11-07T18:50:07.869Z] ❌ Primary buy method (pumpfun) failed: Cannot access 'ataExistsOnChain' before initialization
+[2025-11-07T18:50:07.869Z] 🔄 FALLBACK: Attempting Jupiter aggregator...
+⌛⌛⌚⌚Starting swap at Fri, 07 Nov 2025 18:50:07 GMT (1762541407869ms)
+Swapping 28276853.999999996 of So11111111111111111111111111111111111111112 for CdjDfv9ou4TPJgt8niShuMUwPgsgjGm4QmsM5e26pump...
+Attempt 1/6
+Attempt 1 failed: Request failed with status code 400
+Retrying in 0.2 seconds (1/5)...
+Attempt 2/6
+Attempt 2 failed: Request failed with status code 400
+Retrying in 0.2 seconds (2/5)...
+Attempt 3/6
+Attempt 3 failed: Request failed with status code 400
+Retrying in 0.2 seconds (3/5)...
+Attempt 4/6
+Attempt 4 failed: Request failed with status code 400
+Retrying in 0.2 seconds (4/5)...
+Attempt 5/6
+Attempt 5 failed: Request failed with status code 400
+Retrying in 0.2 seconds (5/5)...
+Attempt 6/6
+Attempt 6 failed: Request failed with status code 400
+Transaction failed after 6 attempts.
+Swap failed: Request failed with status code 400
+[2025-11-07T18:50:09.152Z] 🚀 Spawn System: 1/20 workers active, 0 tasks queued
+[2025-11-07T18:50:09.183Z] ✅ Fallback Jupiter swap successful
+[2025-11-07T18:50:09.183Z] ❌ Token buy failed: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:50:09.183Z] ❌ Spawned buy task failed for CdjDfv9ou4TPJgt8niShuMUwPgsgjGm4QmsM5e26pump: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:50:29.021Z] 🔴 SELL transaction detected: CdjDfv...
+[2025-11-07T18:50:29.127Z] ⚠️  SELL: No matching purchase found for CdjDfv... from wallet DDDD2zvz... (target sell: 13,432,994,664,618), and no tokens in wallet. Skipping
+[2025-11-07T18:50:29.127Z] ⚠️ Spawned sell task result: no_matching_purchase
+[2025-11-07T18:50:39.129Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:51:04.341Z] 💧 Liquidity Analysis for 6xisrQd7...:
+   • SOL Liquidity: 43.7196 SOL
+   • Safe to trade: ✅ YES
+[2025-11-07T18:51:04.341Z] 📊 POSITION SIZING: Buy amount 0.2000 SOL (0.46% of pool)
+[2025-11-07T18:51:04.446Z] ⏱️ getBalance took 105ms (0.10s)
+[2025-11-07T18:51:04.446Z] 💰 Wallet balance: 0.0393 SOL
+[2025-11-07T18:51:04.446Z] 💰 Required: 0.2100 SOL (including fees)
+[2025-11-07T18:51:04.446Z] 💰 Sufficient funds: ❌ NO
+[2025-11-07T18:51:04.446Z] ⚠️ INSUFFICIENT BALANCE: Scaling down buy amount
+[2025-11-07T18:51:04.446Z] 💰 Original amount: 0.2000 SOL
+[2025-11-07T18:51:04.446Z] 💰 Scaled down to: 0.0283 SOL (14.1% of original)
+[2025-11-07T18:51:04.446Z] 💰 Available balance: 0.0393 SOL
+[2025-11-07T18:51:04.446Z] 🔀 ROUTING: Using pumpfun for buy (0.0283 SOL)
+Error in buy_pumpfun: ReferenceError: Cannot access 'ataExistsOnChain' before initialization
+    at buy_pumpfun (file:///home/adminme/Solana-CopyTradingBot/swapsdk_0slot.js:474:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async token_buy (file:///home/adminme/Solana-CopyTradingBot/fuc.js:60:31)
+    at async TransactionMonitor.processBuyTransaction (file:///home/adminme/Solana-CopyTradingBot/main.js:801:36)
+    at async TransactionMonitor.executeTask (file:///home/adminme/Solana-CopyTradingBot/main.js:408:22)
+[2025-11-07T18:51:04.447Z] ❌ Primary buy method (pumpfun) failed: Cannot access 'ataExistsOnChain' before initialization
+[2025-11-07T18:51:04.447Z] 🔄 FALLBACK: Attempting Jupiter aggregator...
+⌛⌛⌚⌚Starting swap at Fri, 07 Nov 2025 18:51:04 GMT (1762541464447ms)
+Swapping 28276853.999999996 of So11111111111111111111111111111111111111112 for 6xisrQd7Kuvn4VEQzGxQqjnmW8bQmAMnpxn1qknFpump...
+Attempt 1/6
+Attempt 1 failed: Request failed with status code 400
+Retrying in 0.2 seconds (1/5)...
+Attempt 2/6
+Attempt 2 failed: Request failed with status code 400
+Retrying in 0.2 seconds (2/5)...
+Attempt 3/6
+Attempt 3 failed: Request failed with status code 400
+Retrying in 0.2 seconds (3/5)...
+Attempt 4/6
+Attempt 4 failed: Request failed with status code 400
+Retrying in 0.2 seconds (4/5)...
+Attempt 5/6
+Attempt 5 failed: Request failed with status code 400
+Retrying in 0.2 seconds (5/5)...
+Attempt 6/6
+Attempt 6 failed: Request failed with status code 400
+Transaction failed after 6 attempts.
+Swap failed: Request failed with status code 400
+[2025-11-07T18:51:05.762Z] ✅ Fallback Jupiter swap successful
+[2025-11-07T18:51:05.763Z] ❌ Token buy failed: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:51:05.763Z] ❌ Spawned buy task failed for 6xisrQd7Kuvn4VEQzGxQqjnmW8bQmAMnpxn1qknFpump: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:51:39.131Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:52:28.342Z] 🔴 SELL transaction detected: 6xisrQ...
+[2025-11-07T18:52:28.447Z] ⚠️  SELL: No matching purchase found for 6xisrQ... from wallet DDDD2zvz... (target sell: 13,795,044,391,978), and no tokens in wallet. Skipping
+[2025-11-07T18:52:28.448Z] ⚠️ Spawned sell task result: no_matching_purchase
+[2025-11-07T18:52:33.794Z] 💧 Liquidity Analysis for 3YCPpYEn...:
+   • SOL Liquidity: 38.4415 SOL
+   • Safe to trade: ✅ YES
+[2025-11-07T18:52:33.794Z] 📊 POSITION SIZING: Buy amount 0.2000 SOL (0.52% of pool)
+[2025-11-07T18:52:33.902Z] ⏱️ getBalance took 107ms (0.11s)
+[2025-11-07T18:52:33.902Z] 💰 Wallet balance: 0.0393 SOL
+[2025-11-07T18:52:33.902Z] 💰 Required: 0.2100 SOL (including fees)
+[2025-11-07T18:52:33.902Z] 💰 Sufficient funds: ❌ NO
+[2025-11-07T18:52:33.903Z] ⚠️ INSUFFICIENT BALANCE: Scaling down buy amount
+[2025-11-07T18:52:33.903Z] 💰 Original amount: 0.2000 SOL
+[2025-11-07T18:52:33.903Z] 💰 Scaled down to: 0.0283 SOL (14.1% of original)
+[2025-11-07T18:52:33.903Z] 💰 Available balance: 0.0393 SOL
+[2025-11-07T18:52:33.903Z] 🔀 ROUTING: Using pumpfun for buy (0.0283 SOL)
+Error in buy_pumpfun: ReferenceError: Cannot access 'ataExistsOnChain' before initialization
+    at buy_pumpfun (file:///home/adminme/Solana-CopyTradingBot/swapsdk_0slot.js:474:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+    at async token_buy (file:///home/adminme/Solana-CopyTradingBot/fuc.js:60:31)
+    at async TransactionMonitor.processBuyTransaction (file:///home/adminme/Solana-CopyTradingBot/main.js:801:36)
+    at async TransactionMonitor.executeTask (file:///home/adminme/Solana-CopyTradingBot/main.js:408:22)
+[2025-11-07T18:52:33.904Z] ❌ Primary buy method (pumpfun) failed: Cannot access 'ataExistsOnChain' before initialization
+[2025-11-07T18:52:33.904Z] 🔄 FALLBACK: Attempting Jupiter aggregator...
+⌛⌛⌚⌚Starting swap at Fri, 07 Nov 2025 18:52:33 GMT (1762541553904ms)
+Swapping 28276853.999999996 of So11111111111111111111111111111111111111112 for 3YCPpYEn2HZMUrhQrD1zutRS1MxPA9UhrAHcbHeNpump...
+Attempt 1/6
+Attempt 1 failed: Request failed with status code 400
+Retrying in 0.2 seconds (1/5)...
+[2025-11-07T18:52:34.164Z] 🚀 Spawn System: 1/20 workers active, 0 tasks queued
+Attempt 2/6
+Attempt 2 failed: Request failed with status code 400
+Retrying in 0.2 seconds (2/5)...
+Attempt 3/6
+Attempt 3 failed: Request failed with status code 400
+Retrying in 0.2 seconds (3/5)...
+Attempt 4/6
+Attempt 4 failed: Request failed with status code 400
+Retrying in 0.2 seconds (4/5)...
+Attempt 5/6
+Attempt 5 failed: Request failed with status code 400
+Retrying in 0.2 seconds (5/5)...
+Attempt 6/6
+Attempt 6 failed: Request failed with status code 400
+Transaction failed after 6 attempts.
+Swap failed: Request failed with status code 400
+[2025-11-07T18:52:35.237Z] ✅ Fallback Jupiter swap successful
+[2025-11-07T18:52:35.237Z] ❌ Token buy failed: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:52:35.238Z] ❌ Spawned buy task failed for 3YCPpYEn2HZMUrhQrD1zutRS1MxPA9UhrAHcbHeNpump: Buy transaction failed: txid=null, token_amount=null
+[2025-11-07T18:52:39.131Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:52:48.314Z] 🔴 SELL transaction detected: 3YCPpY...
+[2025-11-07T18:52:48.501Z] ⚠️  SELL: No matching purchase found for 3YCPpY... from wallet DDDD2zvz... (target sell: 17,796,828,825,308), and no tokens in wallet. Skipping
+[2025-11-07T18:52:48.501Z] ⚠️ Spawned sell task result: no_matching_purchase
+[2025-11-07T18:53:39.132Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:54:39.132Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors
+[2025-11-07T18:55:39.133Z] 🌐 GLOBAL STATUS: 0 total bots running across 2 monitors

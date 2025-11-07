@@ -1,9 +1,8 @@
-import pkg from '@pump-fun/pump-sdk';
-const { PumpSdk } = pkg;
+import { PumpSdk } from '@pump-fun/pump-sdk';
 
 import BN from "bn.js";
-import pkg from '@solana/web3.js';
-const { ComputeBudgetProgram, PublicKey, sendRawTransaction, sendAndConfirmRawTransaction, SystemProgram } = pkg;
+import web3Pkg from '@solana/web3.js';
+const { ComputeBudgetProgram, PublicKey, sendRawTransaction, sendAndConfirmRawTransaction, SystemProgram } = web3Pkg;
 import { TransactionMessage, Connection, VersionedTransaction } from "@solana/web3.js";
 import { loadwallet } from "./swap.js";
 import dotenv from "dotenv";
@@ -244,6 +243,19 @@ export function getConnectionStatus() {
   };
 }
 
+// Helper function to check if ATA exists on-chain
+async function ataExistsOnChain(connection, ataAddress) {
+  try {
+    await getAccount(connection, ataAddress);
+    return true;
+  } catch (e) {
+    // if (e.message && e.message.includes("Failed to find account")) {
+      return false;
+    // }
+    // throw e;
+  }
+}
+
 // Wallet cache for faster subsequent loads
 let cachedWallet = null;
 let walletLoadPromise = null;
@@ -406,25 +418,43 @@ export async function buy_pumpfun(mint, amount, context) {
   try {
     const startTime = performance.now();
     
-    // Pre-compute all static values once
-    const slippage = parseInt(process.env.BUY_SLIPPAGE_BPS_PERCENTAGE) || 500;
-    const slippageMultiplier = 1 + slippage / 100;
+    // Use dynamic slippage based on volatility
+    const { getSlippageForAction } = await import("./dynamic_slippage.js");
+    const slippageData = getSlippageForAction(mint, "BUY", "pumpfun", context);
+    const slippage = slippageData.finalBps;
+    const slippageMultiplier = 1 + slippage / 10000; // Convert bps to multiplier
     const prioritizationFee = parseBigIntEnv(process.env.BUY_PRIORITIZATION_FEE_LAMPORTS, 2000n);
     const swapMethod = (process.env.SWAP_METHOD || "solana").toLowerCase();
     
     // Get wallet and compute values in parallel
-    const [wallet, price, token_amount] = await Promise.all([
+    const [wallet, price] = await Promise.all([
       getCachedWallet(),
-      Promise.resolve(context.virtualSolReserves / context.virtualTokenReserves),
-      Promise.resolve(amount / (context.virtualSolReserves / context.virtualTokenReserves))
+      Promise.resolve(context.virtualSolReserves / context.virtualTokenReserves)
     ]);
+    
+    // Calculate expected token amount based on current price
+    // This is the amount we expect to get with the base amount
+    const expectedTokenAmount = amount / price;
+    
+    // Apply slippage to SOL amount (max_sol_cost should be higher to account for price movement)
+    // Add extra 5% safety margin on top of slippage to ensure we don't hit the limit
+    const safetyMargin = 1.05;
+    const maxSolCost = amount * slippageMultiplier * safetyMargin;
+    
+    // IMPORTANT: For Pump.fun buy instruction:
+    // - tokenAmount: maximum tokens we want to buy
+    // - maxSolCost: maximum SOL we're willing to spend
+    // The program will buy up to tokenAmount tokens as long as cost <= maxSolCost
+    // If price moved up, we might get fewer tokens, but the transaction won't fail
+    // We use the expected token amount (based on current price) and slippage-adjusted SOL with safety margin
+    // This ensures we don't exceed our budget even if price moves significantly
     
     const coin_creator = context.creator;
     const feeRecipient = context.feeRecipient;
     const walletPublicKey = wallet.keypair.publicKey;
     const instructions = [];
     
-    // Ultra-fast ATA handling using sync cache functions
+    // Ultra-fast ATA handling with on-chain verification to avoid 3012 errors
     const ataExistsInCache = hasAtaInCacheSync(mint, walletPublicKey.toString());
     let userAta;
     
@@ -436,27 +466,39 @@ export async function buy_pumpfun(mint, amount, context) {
         userAta = await getAtaAddress(mint, walletPublicKey.toString());
       }
     } else {
-      // ATA doesn't exist in cache, calculate it and add to cache
+      // ATA doesn't exist in cache, calculate it and verify on-chain
       userAta = await getAtaAddress(mint, walletPublicKey.toString());
       
-      // Create ATA instruction since it's not in cache (likely doesn't exist on-chain)
-      instructions.push(
-        createAssociatedTokenAccountInstruction(
-          wallet.keypair.publicKey,
-          userAta,
-          wallet.keypair.publicKey,
-          new PublicKey(mint)
-        )
-      );
+      // CRITICAL: Always check on-chain before creating to avoid 3012 errors
+      // The cache might be out of sync if ATA was created in a previous transaction
+      const ataExistsOnChain = await ataExistsOnChain(solanaConnection, userAta);
+      
+      if (!ataExistsOnChain) {
+        // Only create ATA instruction if it doesn't exist on-chain
+        instructions.push(
+          createAssociatedTokenAccountInstruction(
+            wallet.keypair.publicKey,
+            userAta,
+            wallet.keypair.publicKey,
+            new PublicKey(mint)
+          )
+        );
+      } else {
+        // ATA exists on-chain but not in cache - add to cache
+        addAtaToCache(mint, walletPublicKey.toString(), userAta.toString(), solanaConnection);
+      }
     } 
     // const time1 = performance.now();
     // const durationUs1 = Math.round((time1 - startTime) * 1000);
     // console.log(`✅ ${utcNow()} Time taken to get walletand ata: ${durationUs1}μs`);
     // Create buy instruction with pre-computed values
+    // Note: Pump.fun buy instruction takes (tokenAmount, maxSolCost)
+    // tokenAmount: maximum tokens to buy
+    // maxSolCost: maximum SOL we're willing to spend
     const buyInstruction = await createPumpFunBuyInstruction(
       mint,
-      amount * slippageMultiplier,
-      token_amount,
+      maxSolCost,
+      expectedTokenAmount,
       walletPublicKey,
       coin_creator,
       feeRecipient,
@@ -511,6 +553,22 @@ export async function buy_pumpfun(mint, amount, context) {
         skipPreflight: true,
         maxRetries: 10,
       });
+      
+      // Wait for confirmation to ensure tokens are received
+      try {
+        const confirmation = await solanaConnection.confirmTransaction(txid, "confirmed");
+        if (confirmation.value && confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+        // Verify transaction actually succeeded by checking status
+        const status = await solanaConnection.getSignatureStatus(txid);
+        if (status?.value?.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(status.value.err)}`);
+        }
+      } catch (confirmError) {
+        console.error(chalk.red(`❌ Buy transaction failed: ${confirmError.message}`));
+        throw confirmError; // Re-throw to properly fail the buy
+      }
     } else if (swapMethod === "race") {
     // Send both 0slot and normal transactions concurrently, return the first successful txid
 
@@ -559,6 +617,22 @@ export async function buy_pumpfun(mint, amount, context) {
     console.log("normal txid",sendNormal);
     try {
       txid = await Promise.any([send0slot, sendNormal]);
+      
+      // Wait for confirmation
+      try {
+        const confirmation = await solanaConnection.confirmTransaction(txid, "confirmed");
+        if (confirmation.value && confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+        // Verify transaction actually succeeded by checking status
+        const status = await solanaConnection.getSignatureStatus(txid);
+        if (status?.value?.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(status.value.err)}`);
+        }
+      } catch (confirmError) {
+        console.error(chalk.red(`❌ Buy transaction failed: ${confirmError.message}`));
+        throw confirmError; // Re-throw to properly fail the buy
+      }
     } catch (err) {
       // If both fail, throw the first error
       throw err.errors ? err.errors[0] : err;
@@ -590,6 +664,22 @@ export async function buy_pumpfun(mint, amount, context) {
         skipPreflight: true,
         maxRetries: 0,
       });
+      
+      // Wait for confirmation
+      try {
+        const confirmation = await solanaConnection.confirmTransaction(txid, "confirmed");
+        if (confirmation.value && confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+        // Verify transaction actually succeeded by checking status
+        const status = await solanaConnection.getSignatureStatus(txid);
+        if (status?.value?.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(status.value.err)}`);
+        }
+      } catch (confirmError) {
+        console.error(chalk.red(`❌ Buy transaction failed: ${confirmError.message}`));
+        throw confirmError; // Re-throw to properly fail the buy
+      }
     } else {
       // Fallback to Solana connection
       const allInstructions = [prioritizationIx, unitLimitIx, buyInstruction];
@@ -610,11 +700,28 @@ export async function buy_pumpfun(mint, amount, context) {
         skipPreflight: true,
         maxRetries: 0,
       });
+      
+      // Wait for confirmation
+      try {
+        const confirmation = await solanaConnection.confirmTransaction(txid, "confirmed");
+        if (confirmation.value && confirmation.value.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+        }
+        // Verify transaction actually succeeded by checking status
+        const status = await solanaConnection.getSignatureStatus(txid);
+        if (status?.value?.err) {
+          throw new Error(`Transaction failed: ${JSON.stringify(status.value.err)}`);
+        }
+      } catch (confirmError) {
+        console.error(chalk.red(`❌ Buy transaction failed: ${confirmError.message}`));
+        throw confirmError; // Re-throw to properly fail the buy
+      }
     }
     
     const totalDuration = Math.round((performance.now() - startTime) * 1000);
     console.log(`✅ ${utcNow()} BUY Pumpfun completed in ${totalDuration}μs - TX: ${txid}`);
-    return {txid,token_amount};
+    // Return the expected token amount (actual amount received may vary due to price movement)
+    return {txid, token_amount: expectedTokenAmount};
   } catch (error) {
     console.error("Error in buy_pumpfun:", error);
     throw error;
@@ -648,15 +755,17 @@ export async function sell_pumpfun(mint, token_amount, isFull, context) {
       if (isFull && attempt >= 1) {
         const balance = await getSplTokenBalance(mint);
         console.log(`(Retry #${attempt}) Current tokenA (${mint}) balance:`, balance, "Requested amount:", token_amount);
-        if (balance <= 0) {
+        // Handle null balance (account doesn't exist) as 0
+        const actualBalance = balance === null ? 0 : balance;
+        if (actualBalance <= 0) {
           console.log(`No balance for tokenA (${mint}) to sell. Aborting swap.`);
           return "stop";
         }
-        if (token_amount > balance) {
+        if (token_amount > actualBalance) {
           console.log(
-            `Requested token_amount (${token_amount}) exceeds available balance (${balance}) for mint (${mint}). Adjusting token_amount to available balance.`
+            `Requested token_amount (${token_amount}) exceeds available balance (${actualBalance}) for mint (${mint}). Adjusting token_amount to available balance.`
           );
-          token_amount = balance;
+          token_amount = actualBalance;
         }
       }
       const startTime = Date.now();
@@ -689,6 +798,44 @@ export async function sell_pumpfun(mint, token_amount, isFull, context) {
       const userAta = await getAtaAddress(mint, walletPublicKey);
       const time2 = Date.now();
       console.log(`Time taken to get ATA: ${time2 - time1}ms`);
+
+      // Check if token account exists before attempting sell
+      // Retry mechanism: tokens might not be available immediately after buy
+      let balance = null;
+      const maxBalanceRetries = 3;
+      const balanceRetryDelay = 500; // 500ms between retries
+      
+      for (let retry = 0; retry < maxBalanceRetries; retry++) {
+        try {
+          balance = await getSplTokenBalance(mint);
+          if (balance !== null && balance > 0) {
+            break; // Found balance, exit retry loop
+          }
+          
+          if (retry < maxBalanceRetries - 1) {
+            console.log(chalk.yellow(`⚠️ Balance check ${retry + 1}/${maxBalanceRetries}: Token account for ${mint.slice(0, 8)}... not found or zero. Retrying in ${balanceRetryDelay}ms...`));
+            await new Promise(resolve => setTimeout(resolve, balanceRetryDelay));
+          }
+        } catch (balanceError) {
+          if (retry < maxBalanceRetries - 1) {
+            console.log(chalk.yellow(`⚠️ Balance check ${retry + 1}/${maxBalanceRetries} failed: ${balanceError.message}. Retrying...`));
+            await new Promise(resolve => setTimeout(resolve, balanceRetryDelay));
+          } else {
+            console.log(chalk.yellow(`⚠️ Could not check balance after ${maxBalanceRetries} attempts: ${balanceError.message}. Proceeding with sell attempt.`));
+          }
+        }
+      }
+      
+      if (balance === null || balance <= 0) {
+        console.log(chalk.red(`❌ Token account for ${mint.slice(0, 8)}... does not exist or has zero balance after ${maxBalanceRetries} attempts. Skipping sell.`));
+        return "stop";
+      }
+      
+      // If requested amount exceeds balance, adjust it
+      if (token_amount > balance) {
+        console.log(chalk.yellow(`⚠️ Requested amount (${token_amount}) exceeds balance (${balance}). Adjusting to balance.`));
+        token_amount = balance;
+      }
 
       const instructions = [];
       const sellInstruction = await createPumpFunSellInstruction(
@@ -815,21 +962,12 @@ export async function sell_pumpfun(mint, token_amount, isFull, context) {
     }
   }
 }
-async function ataExistsOnChain(connection, ataAddress) {
-  try {
-    await getAccount(connection, ataAddress);
-    return true;
-  } catch (e) {
-    // if (e.message && e.message.includes("Failed to find account")) {
-      return false;
-    // }
-    // throw e;
-  }
-}
 export async function buy_pumpswap(mint, amount, context) {
   try {
-    // Parse slippage and prioritization fee from env, fallback to safe defaults
-    const slippage = parseInt(process.env.BUY_SLIPPAGE_BPS_PERCENTAGE) || 500; // default 500 = 5%
+    // Use dynamic slippage based on volatility
+    const { getSlippageForAction } = await import("./dynamic_slippage.js");
+    const slippageData = getSlippageForAction(mint, "BUY", "pumpswap", context);
+    const slippage = slippageData.finalBps;
     const prioritizationFee = parseBigIntEnv(process.env.BUY_PRIORITIZATION_FEE_LAMPORTS, 2000n); // default 2000 microLamports
     const wallet = await getCachedWallet();
 
@@ -997,15 +1135,17 @@ export async function sell_pumpswap(baseMint, token_amount, context, isFull) {
       if (attempt >= 1) {
         const balance = await getSplTokenBalance(baseMint);
         console.log(`(Retry #${attempt}) Current tokenA (${baseMint}) balance:`, balance, "Requested amount:", token_amount);
-        if (balance <= 0) {
+        // Handle null balance (account doesn't exist) as 0
+        const actualBalance = balance === null ? 0 : balance;
+        if (actualBalance <= 0) {
           console.log(`No balance for tokenA (${baseMint}) to sell. Aborting swap.`);
           return "stop";
         }
-        if (token_amount > balance) {
+        if (token_amount > actualBalance) {
           console.log(
-            `Requested token_amount (${token_amount}) exceeds available balance (${balance}) for baseMint (${baseMint}). Adjusting token_amount to available balance.`
+            `Requested token_amount (${token_amount}) exceeds available balance (${actualBalance}) for baseMint (${baseMint}). Adjusting token_amount to available balance.`
           );
-          token_amount = balance;
+          token_amount = actualBalance;
         }
       }
 
@@ -1152,8 +1292,10 @@ export async function sell_pumpswap(baseMint, token_amount, context, isFull) {
 
 export async function buy_pumpswap_direct(mint, amount, context) {
   try {
-    // Parse slippage and prioritization fee from env, fallback to safe defaults
-    const slippage = parseInt(process.env.BUY_SLIPPAGE_BPS_PERCENTAGE) || 500; // default 500 = 5%
+    // Use dynamic slippage based on volatility
+    const { getSlippageForAction } = await import("./dynamic_slippage.js");
+    const slippageData = getSlippageForAction(mint, "BUY", "pumpswap_direct", context);
+    const slippage = slippageData.finalBps;
     const prioritizationFee = parseBigIntEnv(process.env.BUY_PRIORITIZATION_FEE_LAMPORTS, 2000n); // default 2000 microLamports
     const wallet = await getCachedWallet();
 
@@ -1192,41 +1334,53 @@ export async function buy_pumpswap_direct(mint, amount, context) {
     console.log("basemint:", baseMintPubkey)
     console.log("quotemint:", quoteMintPubkey)
 
-    // Check if ATA exists in cache (no on-chain check during trading)
+    // Check if ATA exists with on-chain verification to avoid 3012 errors
     const ataExistsInCache = await hasAtaInCache(baseMint, walletPublicKey);
 
     let userBaseToken;
-    console.log("check1", ataExistsInCache)
     if (ataExistsInCache) {
       userBaseToken = await getAtaAddress(baseMint, walletPublicKey);
       console.log("✅ Using cached ATA for base mint:", baseMintPubkey);
     } else {
       userBaseToken = await getAtaAddress(baseMint, walletPublicKey);
-      const createAtaInstruction = createAssociatedTokenAccountInstruction(
-        wallet.keypair.publicKey, // payer
-        userBaseToken, // associated token account
-        wallet.keypair.publicKey, // owner
-        baseMintPubkey // mint
-      );
-      instructions.push(createAtaInstruction);
+      // CRITICAL: Always check on-chain before creating to avoid 3012 errors
+      const baseAtaExistsOnChain = await ataExistsOnChain(solanaConnection, userBaseToken);
+      if (!baseAtaExistsOnChain) {
+        const createAtaInstruction = createAssociatedTokenAccountInstruction(
+          wallet.keypair.publicKey, // payer
+          userBaseToken, // associated token account
+          wallet.keypair.publicKey, // owner
+          baseMintPubkey // mint
+        );
+        instructions.push(createAtaInstruction);
+      } else {
+        // ATA exists on-chain but not in cache - add to cache
+        addAtaToCache(baseMint, walletPublicKey.toString(), userBaseToken.toString(), solanaConnection);
+      }
     }
     
     // Check if user has ATA for quote token
     let userQuoteToken;
     const quoteAtaExistsInCache = await hasAtaInCache(quoteMint, walletPublicKey);
-    console.log("check1", quoteAtaExistsInCache)
     if (quoteAtaExistsInCache) {
       userQuoteToken = await getAtaAddress(quoteMint, walletPublicKey);
       console.log("✅ Using cached ATA for quote mint:", quoteMintPubkey);
     } else {
       userQuoteToken = await getAtaAddress(quoteMint, walletPublicKey);
-      const createQuoteAtaInstruction = createAssociatedTokenAccountInstruction(
-        wallet.keypair.publicKey, // payer
-        userQuoteToken, // associated token account
-        wallet.keypair.publicKey, // owner
-        quoteMintPubkey // mint
-      );
-      instructions.push(createQuoteAtaInstruction);
+      // CRITICAL: Always check on-chain before creating to avoid 3012 errors
+      const quoteAtaExistsOnChain = await ataExistsOnChain(solanaConnection, userQuoteToken);
+      if (!quoteAtaExistsOnChain) {
+        const createQuoteAtaInstruction = createAssociatedTokenAccountInstruction(
+          wallet.keypair.publicKey, // payer
+          userQuoteToken, // associated token account
+          wallet.keypair.publicKey, // owner
+          quoteMintPubkey // mint
+        );
+        instructions.push(createQuoteAtaInstruction);
+      } else {
+        // ATA exists on-chain but not in cache - add to cache
+        addAtaToCache(quoteMint, walletPublicKey.toString(), userQuoteToken.toString(), solanaConnection);
+      }
     }
 
     console.log("📋 Creating buy instruction with accounts:");
@@ -1342,15 +1496,17 @@ export async function sell_pumpswap_direct(baseMint, token_amount, context, isFu
       if (attempt >= 1) {
         const balance = await getSplTokenBalance(baseMint);
         console.log(`(Retry #${attempt}) Current tokenA (${baseMint}) balance:`, balance, "Requested amount:", token_amount);
-        if (balance <= 0) {
+        // Handle null balance (account doesn't exist) as 0
+        const actualBalance = balance === null ? 0 : balance;
+        if (actualBalance <= 0) {
           console.log(`No balance for tokenA (${baseMint}) to sell. Aborting swap.`);
           return "stop";
         }
-        if (token_amount > balance) {
+        if (token_amount > actualBalance) {
           console.log(
-            `Requested token_amount (${token_amount}) exceeds available balance (${balance}) for baseMint (${baseMint}). Adjusting token_amount to available balance.`
+            `Requested token_amount (${token_amount}) exceeds available balance (${actualBalance}) for baseMint (${baseMint}). Adjusting token_amount to available balance.`
           );
-          token_amount = balance;
+          token_amount = actualBalance;
         }
       }
 
